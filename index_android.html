@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
+<title>Isla Lite - Android Mode</title>
+<style>
+  html, body {margin:0; padding:0; background:#071124; height:100%; overflow:hidden;}
+  canvas {display:block; margin:0 auto; background:#0b1724; image-rendering:pixelated; width:100%; height:100%;}
+  #mobileControls {
+    position: fixed; bottom: 10px; left: 10px; right: 10px;
+    display: flex; justify-content: space-between; align-items: flex-end;
+    pointer-events: none;
+  }
+  #mobileControls .dpad {display:flex; flex-direction:column; align-items:center;}
+  #mobileControls .dpad div {display:flex; flex-direction:row;}
+  #mobileControls button {
+    pointer-events: auto;
+    width: 60px; height: 60px; margin: 5px;
+    border-radius: 50%; border: none;
+    background: rgba(255,255,255,0.2); color: #fff;
+    font-size: 22px;
+  }
+  #mobileControls .actions {display:flex; flex-direction:column; align-items:flex-end;}
+</style>
+</head>
+<body>
+<canvas id="game" width="960" height="600"></canvas>
+
+<!-- Kontrol Mobile -->
+<div id="mobileControls">
+  <div class="dpad">
+    <button id="btnUp">⬆️</button>
+    <div>
+      <button id="btnLeft">⬅️</button>
+      <button id="btnDown">⬇️</button>
+      <button id="btnRight">➡️</button>
+    </div>
+  </div>
+  <div class="actions">
+    <button id="btnAttack">⚔️</button>
+    <button id="btnInventory">🎒</button>
+    <button id="btnCraft">🛠️</button>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const W=canvas.width, H=canvas.height;
+
+let player = {x:W/2, y:H/2, hp:100, hunger:0, inv:{meat:0}, dir:1};
+let mobs = [];
+let items = [];
+let keys = {};
+
+function spawnMob(){ mobs.push({x:100+Math.random()*(W-200), y:80+Math.random()*(H-160), hp:10}); }
+for(let i=0;i<6;i++) spawnMob();
+
+window.addEventListener('keydown', e=>{ keys[e.key] = true; });
+window.addEventListener('keyup', e=>{ keys[e.key] = false; });
+
+// bind touch buttons
+function bindTouch(btnId, keyName){
+  const b = document.getElementById(btnId);
+  if(!b) return;
+  b.addEventListener('touchstart', e=>{ e.preventDefault(); keys[keyName]=true; });
+  b.addEventListener('touchend', e=>{ e.preventDefault(); keys[keyName]=false; });
+}
+bindTouch("btnUp","ArrowUp");
+bindTouch("btnDown","ArrowDown");
+bindTouch("btnLeft","ArrowLeft");
+bindTouch("btnRight","ArrowRight");
+bindTouch("btnAttack","e");
+bindTouch("btnInventory","i");
+bindTouch("btnCraft","c");
+
+function update(){
+  const speed = 2;
+  if(keys['ArrowUp']) player.y -= speed;
+  if(keys['ArrowDown']) player.y += speed;
+  if(keys['ArrowLeft']) {player.x -= speed; player.dir=-1;}
+  if(keys['ArrowRight']) {player.x += speed; player.dir=1;}
+  player.x = Math.max(16,Math.min(W-16,player.x));
+  player.y = Math.max(16,Math.min(H-16,player.y));
+  if(keys['e']||keys['E']){
+    for(let m of mobs.slice()){
+      const d = Math.hypot(m.x-player.x, m.y-player.y);
+      if(d<32){
+        m.hp-=1;
+        if(m.hp<=0){
+          items.push({x:m.x,y:m.y,type:'meat',qty:1});
+          mobs.splice(mobs.indexOf(m),1);
+          spawnMob();
+        }
+      }
+    }
+  }
+  for(let it of items.slice()){
+    if(Math.hypot(it.x-player.x,it.y-player.y)<20){
+      player.inv[it.type]=(player.inv[it.type]||0)+it.qty;
+      items.splice(items.indexOf(it),1);
+    }
+  }
+}
+
+function drawPlayer(x,y,dir){
+  ctx.fillStyle='#60a5fa';
+  ctx.fillRect(x-8,y-8,16,16);
+  ctx.fillStyle='#000';
+  ctx.fillRect(x+(dir>0?2:-6),y-4,4,4);
+}
+function drawMob(m){
+  ctx.fillStyle='#9a3412'; ctx.fillRect(m.x-10,m.y-6,20,12);
+  ctx.fillStyle='#000'; ctx.fillRect(m.x+4,m.y-4,3,3);
+}
+function draw(){
+  ctx.fillStyle='#071124'; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='#ef4444';
+  for(let it of items){ ctx.fillRect(it.x-4,it.y-4,8,8); }
+  for(let m of mobs){ drawMob(m); ctx.fillStyle='#22c55e'; ctx.fillRect(m.x-10,m.y-14,20*(m.hp/10),4); }
+  drawPlayer(player.x,player.y,player.dir);
+  ctx.fillStyle='#fff'; ctx.font='14px sans-serif';
+  ctx.fillText("HP:"+player.hp,10,20);
+  ctx.fillText("Meat:"+player.inv.meat,10,40);
+}
+
+function loop(){ update(); draw(); requestAnimationFrame(loop); }
+loop();
+</script>
+</body>
+</html>
